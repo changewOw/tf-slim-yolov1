@@ -5,9 +5,11 @@ from convert_tfrecords import dataTransform
 from get_blob import get_blob
 from tools.yolo_net import YOLONet
 import gc
+from test import Detector
 import config as cfg
 slim = tf.contrib.slim
-
+import matplotlib.pyplot as plt
+import cv2
 
 def main():
     dataGeter = dataTransform()
@@ -15,6 +17,14 @@ def main():
         dataGeter.get()
     del dataGeter;gc.collect()
 
+    image_test = cv2.imread('./test/2.jpg')
+    # image_test = cv2.cvtColor(image_test, cv2.COLOR_BGR2RGB)
+    # cv2.imshow('iamge', image_test)
+    # cv2.waitKey(0)
+    image_test_net = image_test.astype(np.float32)
+    image_test_net = cv2.resize(image_test_net,(448,448))
+    image_test_net = (image_test_net / 255.0) * 2.0 - 1.0
+    image_test_net = np.expand_dims(image_test_net,0)
 
     tf.logging.set_verbosity(tf.logging.DEBUG)
     with tf.Graph().as_default():
@@ -23,6 +33,7 @@ def main():
             blob = get_blob()
             # (H,W,3) (3,) (?,) (?,4)(xmin,ymin,xmax,ymax)已经转换到448下的bboxes
             image,shape,labels,bboxes = blob.get()
+
             precess_gt = precess()
             image_data,gt = precess_gt.run(image,shape,labels,bboxes)
 
@@ -38,7 +49,17 @@ def main():
 
         b_image,b_gt = batch_queue.dequeue()
         net = YOLONet()
+        net_test = YOLONet(is_training=False)
+
         logits = net.build_network(b_image, num_outputs=net.output_size, alpha=net.alpha)
+
+        logits_test = net_test.build_network(image_test_net, num_outputs=net.output_size, alpha=net.alpha,reuse=True)
+
+        # cv2.imshow('iamge', image_test)
+        # cv2.waitKey(0)
+
+        is_that_success = tf.py_func(net.forward_test,[image_test,logits_test,tf.train.get_global_step()],tf.bool)
+
         net.loss_layer(logits, b_gt)
         total_loss = tf.losses.get_total_loss()
 
@@ -57,6 +78,7 @@ def main():
             import time
 
             model_path = cfg.MODEL_DIR
+
             with tf.Session(config=config) as sess:
 
                 summary = tf.summary.merge_all()
@@ -65,8 +87,7 @@ def main():
                 writer = tf.summary.FileWriter(model_path,sess.graph)
                 sess.run(init_op)
 
-                saver.restore(sess,cfg.WEIGHT_DIR)
-
+                saver.restore(sess,'./pretrained/YOLO.ckpt')
                 for step in range(20000):
                     start_time = time.time()
 
@@ -82,6 +103,11 @@ def main():
                         print(format_str % (step, loss_value, examples_per_sec, sec_per_batch))
                     if step % 1000 == 0:
                         saver.save(sess, model_path+"yolov1.model", global_step=tf.train.get_global_step())
+                    if step % 500 == 0:
+                        cv2.imshow('iamge', image_test)
+                        cv2.waitKey(0)
+                        sess.run(is_that_success)
+
                 coord.request_stop()
                 coord.join(threads)
 

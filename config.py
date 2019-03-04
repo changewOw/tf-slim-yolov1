@@ -6,7 +6,7 @@ DIRECTORY_IMAGES = 'JPEGImages/'
 
 MODEL_DIR = './checkpoints/'
 
-EXAMPLE_PER_FIEL = 200
+EXAMPLE_PER_FIEL = 50
 
 WEIGHT_DIR = './pretrained/YOLO.ckpt'
 
@@ -48,3 +48,11 @@ COORD_SCALE = 5.0
 
 BOXES_PER_CELL = 2
 ALPHA = 0.1
+
+THRESHOLD = 0.2
+
+IOU_THRESHOLD = 0.5
+CLASSES_a = ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
+           'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse',
+           'motorbike', 'person', 'pottedplant', 'sheep', 'sofa',
+           'train', 'tvmonitor']
